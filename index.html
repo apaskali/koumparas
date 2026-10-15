@@ -11,6 +11,7 @@
 <meta name="theme-color" content="#eef2f1">
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="manifest" href="manifest.webmanifest">
+<script>try{var t=localStorage.getItem('koumparas-theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
 <style>
 html{-webkit-tap-highlight-color:transparent}
 body{margin:0;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
@@ -91,6 +92,7 @@ input.amt{font-family:var(--num);text-align:right}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
 .chip{border:1px solid var(--line);background:var(--bg);border-radius:999px;padding:6px 11px;font-size:13px}
 .chip[aria-pressed="true"]{background:var(--extra);border-color:var(--extra);color:#fff}
+.chip.theme[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--bg)}
 .xlist{display:flex;flex-direction:column}
 .x{display:grid;grid-template-columns:34px 1fr auto 36px;gap:8px;align-items:center;padding:8px 0;border-top:1px solid var(--line)}
 .x:first-child{border-top:none}
@@ -231,7 +233,15 @@ textarea{min-height:90px;font-family:var(--num);font-size:12px}
       <button class="btn" id="doRestore">Επαναφορά δεδομένων</button>
     </div>
   </section>
-  <p class="note" id="offlineState" style="text-align:center">Έκδοση 5 · Έλεγχος λειτουργίας χωρίς ίντερνετ…</p>
+  <section class="sec">
+    <div class="sec-head"><h2>Εμφάνιση</h2></div>
+    <div class="chips" id="themePick" role="group" aria-label="Εμφάνιση">
+      <button type="button" class="chip theme" data-theme-opt="light">Φωτεινή</button>
+      <button type="button" class="chip theme" data-theme-opt="dark">Σκούρα</button>
+      <button type="button" class="chip theme" data-theme-opt="auto">Όπως το κινητό</button>
+    </div>
+  </section>
+  <p class="note" id="offlineState" style="text-align:center">Έκδοση 6 · Έλεγχος λειτουργίας χωρίς ίντερνετ…</p>
 </div>
 <div class="toast" id="toast" hidden><span id="toastMsg"></span><button id="toastUndo" hidden>Αναίρεση</button></div>
 
@@ -377,6 +387,17 @@ $('toastUndo').onclick=()=>{if(undo){undo();undo=null;save();renderAll()}$('toas
 
 $('prev').onclick=()=>{view=shift(view,-1);histYear=+view.slice(0,4);renderAll()};
 $('next').onclick=()=>{view=shift(view,1);histYear=+view.slice(0,4);renderAll()};
+function applyTheme(opt){
+  const root=document.documentElement;
+  if(opt==='light'||opt==='dark')root.setAttribute('data-theme',opt);else root.removeAttribute('data-theme');
+  try{localStorage.setItem('koumparas-theme',opt)}catch(e){}
+  document.querySelectorAll('[data-theme-opt]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.themeOpt===opt));
+  const dark=opt==='dark'||(opt==='auto'&&matchMedia('(prefers-color-scheme: dark)').matches);
+  document.querySelector('meta[name="theme-color"]').setAttribute('content',dark?'#0f1716':'#eef2f1');
+}
+let themeOpt='auto';try{themeOpt=localStorage.getItem('koumparas-theme')||'auto'}catch(e){}
+applyTheme(themeOpt);
+$('themePick').addEventListener('click',e=>{const b=e.target.closest('[data-theme-opt]');if(b)applyTheme(b.dataset.themeOpt)});
 $('yPrev').onclick=()=>{histYear--;renderHist()};
 $('yNext').onclick=()=>{histYear++;renderHist()};
 $('hist').addEventListener('click',e=>{const b=e.target.closest('[data-month]');if(!b)return;
@@ -451,11 +472,11 @@ $('reset').onclick=e=>{
 };
 renderAll();
 (function(){
-  const el=$('offlineState'), set=t=>{el.textContent='Έκδοση 5 · '+t};
+  const el=$('offlineState'), set=t=>{el.textContent='Έκδοση 6 · '+t};
   if(!('serviceWorker' in navigator)){set('Αυτός ο browser δεν υποστηρίζει λειτουργία χωρίς ίντερνετ');return}
   if(location.protocol!=='https:'){set('Λειτουργία χωρίς ίντερνετ μόνο από τη διεύθυνση GitHub');return}
   navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).catch(err=>set('Δεν ενεργοποιήθηκε η λειτουργία χωρίς ίντερνετ ('+(err&&err.message||'σφάλμα')+')'));
-  navigator.serviceWorker.ready.then(()=>caches.has('koumparas-v5')).then(ok=>set(ok?'Έτοιμο και χωρίς ίντερνετ ✓':'Προετοιμασία για χρήση χωρίς ίντερνετ…'));
+  navigator.serviceWorker.ready.then(()=>caches.has('koumparas-v6')).then(ok=>set(ok?'Έτοιμο και χωρίς ίντερνετ ✓':'Προετοιμασία για χρήση χωρίς ίντερνετ…'));
 })();
 })();
 </script>
