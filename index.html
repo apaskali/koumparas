@@ -82,7 +82,8 @@ input.amt{font-family:var(--num);text-align:right}
 .btn{border:none;background:var(--accent);color:#fff;border-radius:10px;padding:10px 14px;font-weight:600;white-space:nowrap}
 :root[data-theme="dark"] .btn{color:#0f1716}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .btn{color:#0f1716}}
-.btn.ghost{background:transparent;color:var(--accent);border:1px solid var(--accent)}
+.btn.ghost{background:var(--surface);color:var(--ink);border:1px solid var(--line);font-weight:500}
+.btn.ghost:hover{background:var(--bg)}
 .btn.danger{background:transparent;color:var(--bad);border:1px solid var(--bad)}
 .btn.danger.armed{background:var(--bad);color:#fff}
 .empty{color:var(--muted);font-size:14px;margin:0}
@@ -106,6 +107,16 @@ input.amt{font-family:var(--num);text-align:right}
 .h .track{height:10px;background:var(--bg);border-radius:5px;overflow:hidden}
 .h .fill{height:100%;border-radius:5px}
 .h .num{text-align:right}
+.icon-btn.sm{width:32px;height:32px;font-size:16px;border-radius:10px}
+button.h{background:none;border:none;border-radius:8px;padding:3px 4px;margin:0 -4px;width:calc(100% + 8px);text-align:left;color:var(--ink)}
+button.h:hover{background:var(--bg)}
+button.h.cur{background:var(--accent-soft);font-weight:700}
+.ysum{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;border-top:1px dashed var(--line);padding-top:12px}
+.ysum div{display:flex;flex-direction:column;gap:2px;min-width:0}
+.ysum small{color:var(--muted);font-size:12px}
+.ysum .num{font-size:14px;font-weight:600}
+#saved{white-space:nowrap;font-size:18px}
+#saved small{font-size:13px;color:var(--muted);font-weight:500}
 .total{display:flex;justify-content:space-between;align-items:baseline;border-top:1px dashed var(--line);padding-top:10px}
 .total .num{font-size:20px;font-weight:600;color:var(--good)}
 .backup{display:flex;flex-wrap:wrap;gap:8px}
@@ -131,6 +142,10 @@ textarea{min-height:90px;font-family:var(--num);font-size:12px}
   <div class="sample" id="sampleBanner" hidden>
     <p>Βλέπεις <b>ενδεικτικά ποσά</b> για να δεις πώς δουλεύει. Όταν είσαι έτοιμη, καθάρισέ τα και βάλε τα δικά σου.</p>
     <button class="btn" id="startFresh">Ξεκίνα με τα δικά μου</button>
+  </div>
+
+  <div class="sample" id="storageWarn" hidden style="background:var(--bad);color:#fff">
+    <p><b>Τα ποσά σου δεν αποθηκεύονται.</b> Ο browser μπλοκάρει την αποθήκευση και θα χαθούν μόλις κλείσεις ή ανανεώσεις τη σελίδα. Στο iPhone: Ρυθμίσεις → Εφαρμογές → Safari → απενεργοποίησε το «Αποκλεισμός όλων των cookies», και μην χρησιμοποιείς Ιδιωτική περιήγηση.</p>
   </div>
 
   <section class="hero" aria-live="polite">
@@ -186,9 +201,18 @@ textarea{min-height:90px;font-family:var(--num);font-size:12px}
   </section>
 
   <section class="sec">
-    <div class="sec-head"><h2>Ιστορικό</h2></div>
+    <div class="sec-head">
+      <h2>Ετήσια εικόνα</h2>
+      <div class="month">
+        <button class="icon-btn sm" id="yPrev" aria-label="Προηγούμενο έτος">‹</button>
+        <b id="ylabel" style="min-width:52px"></b>
+        <button class="icon-btn sm" id="yNext" aria-label="Επόμενο έτος">›</button>
+      </div>
+    </div>
     <div class="hist" id="hist"></div>
-    <div class="total"><span>Σύνολο που έμεινε</span><span class="num" id="saved"></span></div>
+    <div class="ysum" id="ysum"></div>
+    <div class="total"><span>Αποταμίευση έτους</span><span class="num" id="saved"></span></div>
+    <p class="note" id="allTime"></p>
   </section>
 
   <section class="sec">
@@ -207,7 +231,7 @@ textarea{min-height:90px;font-family:var(--num);font-size:12px}
       <button class="btn" id="doRestore">Επαναφορά δεδομένων</button>
     </div>
   </section>
-  <p class="note" id="offlineState" style="text-align:center">Έκδοση 2 · Έλεγχος λειτουργίας χωρίς ίντερνετ…</p>
+  <p class="note" id="offlineState" style="text-align:center">Έκδοση 5 · Έλεγχος λειτουργίας χωρίς ίντερνετ…</p>
 </div>
 <div class="toast" id="toast" hidden><span id="toastMsg"></span><button id="toastUndo" hidden>Αναίρεση</button></div>
 
@@ -221,7 +245,10 @@ const fmt=new Intl.NumberFormat('el-GR',{style:'currency',currency:'EUR'});
 const $=id=>document.getElementById(id);
 const uid=()=>Math.random().toString(36).slice(2,9);
 const r2=n=>Math.round(n*100)/100;
-const parse=v=>{v=String(v||'').replace(/\s/g,'').replace(/€/g,'');if(v.includes(',')){v=v.replace(/\./g,'').replace(',','.')}const n=parseFloat(v);return isFinite(n)?r2(n):0};
+const parse=v=>{v=String(v||'').replace(/\s/g,'').replace(/€/g,'');
+  if(v.includes(',')){v=v.replace(/\./g,'').replace(',','.')}
+  else if(/^\d{1,3}(\.\d{3})+$/.test(v)){v=v.replace(/\./g,'')} // 1.500 = χίλια πεντακόσια
+  const n=parseFloat(v);return isFinite(n)?r2(n):0};
 const show=n=>n?String(n).replace('.',','):'';
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const keyOf=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
@@ -242,7 +269,13 @@ function blank(){return {v:1,sample:false,goal:10,months:{}}}
 let S, view=NOW, cat=CATS[0], undo=null;
 try{const raw=localStorage.getItem(KEY);S=raw?JSON.parse(raw):null}catch(e){S=null}
 if(!S||!S.months)S=sample();
-function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+let storageOK=true;
+try{localStorage.setItem('__koumparas_test','1');storageOK=localStorage.getItem('__koumparas_test')==='1';localStorage.removeItem('__koumparas_test')}catch(e){storageOK=false}
+function save(){
+  try{localStorage.setItem(KEY,JSON.stringify(S));if(localStorage.getItem(KEY)===null)throw 0}
+  catch(e){storageOK=false}
+  $('storageWarn').hidden=storageOK;
+}
 
 function month(k,create){
   if(S.months[k])return S.months[k];
@@ -284,20 +317,30 @@ function renderCats(){
   const by={}; M().extras.forEach(x=>by[x.cat]=(by[x.cat]||0)+x.amount);
   $('catSum').innerHTML=Object.entries(by).sort((a,b)=>b[1]-a[1]).map(([c,v])=>`<span class="cat">${esc(c)} <b>${fmt.format(v)}</b></span>`).join('');
 }
+let histYear=+NOW.slice(0,4);
 function renderHist(){
-  const keys=[];for(let i=5;i>=0;i--)keys.push(shift(NOW,-i));
-  if(view>NOW)keys.push(view);
+  $('ylabel').textContent=histYear;
+  const keys=[];for(let m=1;m<=12;m++)keys.push(`${histYear}-${String(m).padStart(2,'0')}`);
   const rows=keys.map(k=>({k,t:S.months[k]?totals(S.months[k]):null}));
-  const max=Math.max(1,...rows.map(r=>r.t?Math.abs(r.t.left):0));
+  const max=Math.max(1,...rows.map(r=>r.t&&r.t.inc?Math.abs(r.t.left):0));
   $('hist').innerHTML=rows.map(({k,t})=>{
-    const [y,m]=k.split('-').map(Number);
-    const lab=`${MSHORT[m-1]} ’${String(y).slice(2)}`;
-    if(!t||!t.inc)return `<div class="h"><span>${lab}</span><div class="track"></div><span class="num" style="color:var(--muted)">—</span></div>`;
+    const lab=MSHORT[+k.slice(5)-1];
+    const cur=k===view?' cur':'';
+    if(!t||!t.inc)return `<button type="button" class="h${cur}" data-month="${k}"><span>${lab}</span><div class="track"></div><span class="num" style="color:var(--muted)">—</span></button>`;
     const c=t.left<0?'var(--bad)':'var(--good)';
-    return `<div class="h"${k===view?' style="font-weight:700"':''}><span>${lab}</span><div class="track"><div class="fill" style="width:${Math.abs(t.left)/max*100}%;background:${c}"></div></div><span class="num" style="color:${c}">${fmt.format(t.left)}</span></div>`;
+    return `<button type="button" class="h${cur}" data-month="${k}"><span>${lab}</span><div class="track"><div class="fill" style="width:${Math.abs(t.left)/max*100}%;background:${c}"></div></div><span class="num" style="color:${c}">${fmt.format(t.left)}</span></button>`;
   }).join('');
+  const yr=rows.filter(r=>r.t&&r.t.inc).map(r=>r.t);
+  const sum=f=>r2(yr.reduce((a,t)=>a+t[f],0));
+  const inc=sum('inc'), left=sum('left');
+  $('ysum').innerHTML=`<div><small>Έσοδα έτους</small><span class="num">${fmt.format(inc)}</span></div>
+    <div><small>Πάγια έτους</small><span class="num">${fmt.format(sum('fx'))}</span></div>
+    <div><small>Έκτακτα έτους</small><span class="num">${fmt.format(sum('ex'))}</span></div>`;
+  const s=$('saved'); s.innerHTML=fmt.format(left)+(inc?` <small>${Math.round(left/inc*100)}%</small>`:'');
+  s.style.color=left<0?'var(--bad)':'var(--good)';
   const all=Object.keys(S.months).filter(k=>k<=NOW).map(k=>totals(S.months[k])).filter(t=>t.inc);
-  $('saved').textContent=fmt.format(r2(all.reduce((a,t)=>a+t.left,0)));
+  const tot=r2(all.reduce((a,t)=>a+t.left,0));
+  $('allTime').textContent=yr.length?`${yr.length} ${yr.length===1?'μήνας':'μήνες'} με στοιχεία φέτος · Σύνολο από την αρχή: ${fmt.format(tot)}`:'Δεν υπάρχουν ακόμη στοιχεία για αυτό το έτος.';
 }
 function renderLists(){
   const m=M();
@@ -317,6 +360,7 @@ function renderAll(){
   const [y,mm]=view.split('-').map(Number);
   $('mlabel').textContent=`${MONTHS[mm-1]} ${y}`;
   $('sampleBanner').hidden=!S.sample;
+  $('storageWarn').hidden=storageOK;
   const m=M();
   $('income').value=show(m.income); $('other').value=show(m.other);
   $('goalPct').innerHTML=[5,10,15,20,25,30].map(p=>`<option value="${p}"${p===S.goal?' selected':''}>${p}%</option>`).join('');
@@ -331,8 +375,12 @@ function toast(msg,undoFn){
 }
 $('toastUndo').onclick=()=>{if(undo){undo();undo=null;save();renderAll()}$('toast').hidden=true};
 
-$('prev').onclick=()=>{view=shift(view,-1);renderAll()};
-$('next').onclick=()=>{view=shift(view,1);renderAll()};
+$('prev').onclick=()=>{view=shift(view,-1);histYear=+view.slice(0,4);renderAll()};
+$('next').onclick=()=>{view=shift(view,1);histYear=+view.slice(0,4);renderAll()};
+$('yPrev').onclick=()=>{histYear--;renderHist()};
+$('yNext').onclick=()=>{histYear++;renderHist()};
+$('hist').addEventListener('click',e=>{const b=e.target.closest('[data-month]');if(!b)return;
+  view=b.dataset.month;renderAll();window.scrollTo({top:0,behavior:'smooth'})});
 $('income').addEventListener('input',e=>{M().income=parse(e.target.value);save();renderSummary()});
 $('other').addEventListener('input',e=>{M().other=parse(e.target.value);save();renderSummary()});
 $('goalPct').onchange=e=>{S.goal=+e.target.value;save();renderSummary()};
@@ -403,11 +451,11 @@ $('reset').onclick=e=>{
 };
 renderAll();
 (function(){
-  const el=$('offlineState'), set=t=>{el.textContent='Έκδοση 2 · '+t};
+  const el=$('offlineState'), set=t=>{el.textContent='Έκδοση 5 · '+t};
   if(!('serviceWorker' in navigator)){set('Αυτός ο browser δεν υποστηρίζει λειτουργία χωρίς ίντερνετ');return}
   if(location.protocol!=='https:'){set('Λειτουργία χωρίς ίντερνετ μόνο από τη διεύθυνση GitHub');return}
   navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).catch(err=>set('Δεν ενεργοποιήθηκε η λειτουργία χωρίς ίντερνετ ('+(err&&err.message||'σφάλμα')+')'));
-  navigator.serviceWorker.ready.then(()=>caches.has('koumparas-v2')).then(ok=>set(ok?'Έτοιμο και χωρίς ίντερνετ ✓':'Προετοιμασία για χρήση χωρίς ίντερνετ…'));
+  navigator.serviceWorker.ready.then(()=>caches.has('koumparas-v5')).then(ok=>set(ok?'Έτοιμο και χωρίς ίντερνετ ✓':'Προετοιμασία για χρήση χωρίς ίντερνετ…'));
 })();
 })();
 </script>
