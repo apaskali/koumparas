@@ -207,6 +207,7 @@ textarea{min-height:90px;font-family:var(--num);font-size:12px}
       <button class="btn" id="doRestore">Επαναφορά δεδομένων</button>
     </div>
   </section>
+  <p class="note" id="offlineState" style="text-align:center">Έκδοση 2 · Έλεγχος λειτουργίας χωρίς ίντερνετ…</p>
 </div>
 <div class="toast" id="toast" hidden><span id="toastMsg"></span><button id="toastUndo" hidden>Αναίρεση</button></div>
 
@@ -401,7 +402,13 @@ $('reset').onclick=e=>{
   S=blank();view=NOW;save();renderAll();toast('Όλα διαγράφηκαν');
 };
 renderAll();
-if('serviceWorker' in navigator&&location.protocol==='https:'){navigator.serviceWorker.register('sw.js').catch(()=>{})}
+(function(){
+  const el=$('offlineState'), set=t=>{el.textContent='Έκδοση 2 · '+t};
+  if(!('serviceWorker' in navigator)){set('Αυτός ο browser δεν υποστηρίζει λειτουργία χωρίς ίντερνετ');return}
+  if(location.protocol!=='https:'){set('Λειτουργία χωρίς ίντερνετ μόνο από τη διεύθυνση GitHub');return}
+  navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).catch(err=>set('Δεν ενεργοποιήθηκε η λειτουργία χωρίς ίντερνετ ('+(err&&err.message||'σφάλμα')+')'));
+  navigator.serviceWorker.ready.then(()=>caches.has('koumparas-v2')).then(ok=>set(ok?'Έτοιμο και χωρίς ίντερνετ ✓':'Προετοιμασία για χρήση χωρίς ίντερνετ…'));
+})();
 })();
 </script>
 </body>
