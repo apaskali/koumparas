@@ -1,6 +1,6 @@
 // Κουμπαράς — κρατά την εφαρμογή στο κινητό ώστε να ανοίγει αμέσως, και χωρίς ίντερνετ.
 // Σε κάθε νέα έκδοση του index.html αλλάζει ο αριθμός έκδοσης παρακάτω.
-const CACHE = 'koumparas-v4';
+const CACHE = 'koumparas-v5';
 const FILES = ['./', './index.html', './manifest.webmanifest', './icon-180.png', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
